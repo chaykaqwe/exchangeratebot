@@ -88,7 +88,7 @@ async def exchange_rate_usd(mes: Message, state: FSMContext):
                     data = await response.json()
                     rate = data["rates"][currency2_symbol]
                     convert = amount * float(rate)
-                    await mes.answer(f"Курс {currency1} (USD) к {currency2_symbol} ({currency2_symbol}): {convert}",
+                    await mes.answer(f"Курс {currency1} ({currency1_symbol}) к {currency2_symbol} ({currency2_symbol}): {convert}",
                                      reply_markup=kb.main)
                 else:
                     await mes.answer(f"Ошибка при получении данных: {response.status}")
