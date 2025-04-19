@@ -18,7 +18,6 @@ tasks = {}
 
 class Main(StatesGroup):
     amount = State()
-    currency1 = State()
     currency2 = State()
 
 
@@ -30,14 +29,7 @@ async def cmd(mes: Message):
 @router.message(F.text == 'Выбрать валюту')
 async def choice_currency_1(mes: Message, state: FSMContext):
     await mes.answer('Выберите первую валюту', reply_markup=await kb.currency_kb())
-    await state.set_state(Main.currency1)
-
-
-@router.message(Main.currency1)
-async def choice_currency_1(mes: Message, state: FSMContext):
-    await mes.answer('Выберите вторую валюту', reply_markup=await kb.currency_kb())
     await state.set_state(Main.currency2)
-    await state.update_data(currency1=mes.text)
 
 
 @router.message(Main.currency2)
@@ -75,20 +67,17 @@ async def exchange_rate_usd(mes: Message, state: FSMContext):
         await state.update_data(amount=mes.text)
         data_state = await state.get_data()
         amount = float(data_state.get('amount'))
-        currency1 = data_state.get('currency1')
-        currency1_symbol = currencys[currency1]
-
         currency2 = data_state.get('currency2')
         currency2_symbol = currencys[currency2]
 
         async with aiohttp.ClientSession() as session:
-            url = f"https://api.currencyfreaks.com/latest?apikey={API_KEY}&base={currency1_symbol}&symbols={currency2_symbol}"
+            url = f"https://api.currencyfreaks.com/latest?apikey={API_KEY}&symbols={currency2_symbol}"
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
                     rate = data["rates"][currency2_symbol]
                     convert = amount * float(rate)
-                    await mes.answer(f"Курс {currency1} (USD) к {currency2_symbol} ({currency2_symbol}): {convert}",
+                    await mes.answer(f"Курс Доллара (USD) к {currency2_symbol} ({currency2_symbol}): {convert}",
                                      reply_markup=kb.main)
                 else:
                     await mes.answer(f"Ошибка при получении данных: {response.status}")
