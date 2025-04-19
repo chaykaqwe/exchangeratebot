@@ -1,14 +1,11 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from dotenv import load_dotenv
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 import aiohttp
 import os
-from datetime import datetime
-import asyncio
-
 
 import keyboard as kb
 
@@ -20,8 +17,9 @@ tasks = {}
 
 
 class Main(StatesGroup):
-    amout = State()
-    currency = State()
+    amount = State()
+    currency1 = State()
+    currency2 = State()
 
 
 @router.message(CommandStart())
@@ -29,27 +27,74 @@ async def cmd(mes: Message):
     await mes.answer('Добро пожаловать здесь вы можите смотреть курс валют!', reply_markup=kb.main)
 
 
+@router.message(F.text == 'Выбрать валюту')
+async def choice_currency_1(mes: Message, state: FSMContext):
+    await mes.answer('Выберите первую валюту', reply_markup=await kb.currency_kb())
+    await state.set_state(Main.currency1)
 
-@router.message(F.text == 'Курс доллора')
+
+@router.message(Main.currency1)
+async def choice_currency_1(mes: Message, state: FSMContext):
+    await mes.answer('Выберите вторую валюту', reply_markup=await kb.currency_kb())
+    await state.set_state(Main.currency2)
+    await state.update_data(currency1=mes.text)
+
+
+@router.message(Main.currency2)
 async def your_amout(mes: Message, state: FSMContext):
     await mes.answer('Введите сумму конвертации', reply_markup=await kb.amout_count())
-    await state.set_state(Main.amout)
+    await state.update_data(currency2=mes.text)
+    await state.set_state(Main.amount)
 
 
-
-@router.message(Main.amout)
-async def exchange_rate_usd(mes: Message):
+@router.message(Main.amount)
+async def exchange_rate_usd(mes: Message, state: FSMContext):
     try:
-        amount = int(mes.text)
+        currencys = {
+            "Доллар США $": "USD",
+            "Евро €": "EUR",
+            "Российский рубль ₽": "RUB",
+            "Британский фунт £": "GBP",
+            "Японская иена ¥": "JPY",
+            "Китайский юань ¥": "CNY",
+            "Швейцарский франк ₣": "CHF",
+            "Канадский доллар $": "CAD",
+            "Австралийский доллар $": "AUD",
+            "Новая турецкая лира ₺": "TRY",
+            "Индийская рупия ₹": "INR",
+            "Бразильский реал R$": "BRL",
+            "Сингапурский доллар $": "SGD",
+            "Норвежская крона kr": "NOK",
+            "Шведская крона kr": "SEK",
+            "Польский злотый zł": "PLN",
+            "Украинская гривна ₴": "UAH",
+            "Казахстанский тенге ₸": "KZT",
+            "Гонконгский доллар $": "HKD",
+            "Дирхам ОАЭ د.إ": "AED"
+        }
+        await state.update_data(amount=mes.text)
+        data_state = await state.get_data()
+        amount = float(data_state.get('amount'))
+        currency1 = data_state.get('currency1')
+        currency1_symbol = currencys[currency1]
+
+        currency2 = data_state.get('currency2')
+        currency2_symbol = currencys[currency2]
+
         async with aiohttp.ClientSession() as session:
-            url = f"https://api.currencyfreaks.com/latest?apikey={API_KEY}&symbols=RUB"
+            url = f"https://api.currencyfreaks.com/latest?apikey={API_KEY}&base={currency1_symbol}&symbols={currency2_symbol}"
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
-                    usd_to_rub = data["rates"]["RUB"]
-                    convert = amount * float(usd_to_rub)
-                    await mes.answer(f"Курс доллара (USD) к рублю (RUB): {convert}")
+                    rate = data["rates"][currency2_symbol]
+                    convert = amount * float(rate)
+                    await mes.answer(f"Курс {currency1} (USD) к {currency2_symbol} ({currency2_symbol}): {convert}",
+                                     reply_markup=kb.main)
                 else:
-                    await mes.answer("Ошибка при получении данных:", response.status)
+                    await mes.answer(f"Ошибка при получении данных: {response.status}")
+        await state.clear()
+        await ReplyKeyboardRemove
+
     except ValueError:
         await mes.answer('Неверный формат ❌. Введите числовое значение')
+
